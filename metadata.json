@@ -1,0 +1,5 @@
+{
+  "name": "Littlest Tokyo Scroll",
+  "description": "A 3D scrolling experience featuring the Littlest Tokyo model from Three.js examples, rebuilt with React Three Fiber.",
+  "requestFramePermissions": []
+}
