@@ -8,8 +8,7 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
+// Removed StrictMode to prevent double-initialization issues with GLTFLoader/Draco in development
 root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <App />
 );

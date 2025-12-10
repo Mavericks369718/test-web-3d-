@@ -3,8 +3,14 @@ import { useGLTF, useAnimations, useScroll } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-// Define the source URL for the model (Official Three.js example asset)
-const MODEL_URL = 'https://threejs.org/examples/models/gltf/LittlestTokyo.glb';
+// Define the source URL for the model
+// Using GitHub Raw is often more reliable for CORS than direct threejs.org links in sandboxes
+const MODEL_URL = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/LittlestTokyo.glb';
+
+// Helper for smooth damping (Frame-rate independent lerp)
+const damp = (current: number, target: number, lambda: number, delta: number) => {
+  return THREE.MathUtils.lerp(current, target, 1 - Math.exp(-lambda * delta));
+};
 
 export const LittlestTokyo: React.FC = () => {
   const group = useRef<THREE.Group>(null);
@@ -18,8 +24,7 @@ export const LittlestTokyo: React.FC = () => {
   const { actions } = useAnimations(animations, group);
 
   useEffect(() => {
-    // Play the first animation clip found, similar to the original code:
-    // mixer.clipAction( gltf.animations[ 0 ] ).play();
+    // Play the first animation clip found
     if (actions && animations.length > 0) {
       const firstAction = actions[animations[0].name];
       firstAction?.play();
@@ -31,23 +36,13 @@ export const LittlestTokyo: React.FC = () => {
     if (!group.current) return;
 
     // The scroll.offset is a value between 0 and 1
-    // 0 = top, 1 = bottom
     const offset = scroll.offset;
 
     // Rotation logic:
     // Rotate the entire model slowly based on scroll position
-    // Initial rotation y is usually 0. Let's make it spin 360 degrees (2 * PI) over the full scroll
-    // but keep it subtle.
-    
-    // We can also move the model position to create a parallax effect.
-    // Section 1 (0.0 - 0.33): Center
-    // Section 2 (0.33 - 0.66): Move Left
-    // Section 3 (0.66 - 1.0): Move Right
-    
-    // Smooth dampening for rotation
     const targetRotationY = offset * Math.PI * 2;
-    // Simple linear interpolation for demonstration, normally would use MathUtils.damp
-    group.current.rotation.y = THREE.MathUtils.damp(
+    
+    group.current.rotation.y = damp(
       group.current.rotation.y, 
       targetRotationY, 
       4, 
@@ -55,14 +50,13 @@ export const LittlestTokyo: React.FC = () => {
     );
 
     // Position Handling (Parallax)
-    // Original pos: [1, 1, 0]
     const targetX = 1 + Math.sin(offset * Math.PI * 2) * 2; // Moves left/right
     const targetY = 1 - offset * 2; // Moves up as we scroll down
     const targetZ = offset * 3; // Moves closer
     
-    group.current.position.x = THREE.MathUtils.damp(group.current.position.x, targetX, 2, delta);
-    group.current.position.y = THREE.MathUtils.damp(group.current.position.y, targetY, 2, delta);
-    group.current.position.z = THREE.MathUtils.damp(group.current.position.z, targetZ, 2, delta);
+    group.current.position.x = damp(group.current.position.x, targetX, 2, delta);
+    group.current.position.y = damp(group.current.position.y, targetY, 2, delta);
+    group.current.position.z = damp(group.current.position.z, targetZ, 2, delta);
   });
 
   return (
@@ -70,7 +64,7 @@ export const LittlestTokyo: React.FC = () => {
       <primitive 
         object={scene} 
         scale={[0.01, 0.01, 0.01]} 
-        position={[1, 1, 0]} // Initial position from original code
+        position={[1, 1, 0]} 
       />
     </group>
   );
