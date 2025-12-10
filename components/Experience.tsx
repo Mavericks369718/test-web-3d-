@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { ScrollControls, Scroll, Environment, useScroll, Float } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -8,6 +8,75 @@ import { Overlay } from './Overlay';
 // Helper for smooth damping (Frame-rate independent lerp)
 const damp = (current: number, target: number, lambda: number, delta: number) => {
   return THREE.MathUtils.lerp(current, target, 1 - Math.exp(-lambda * delta));
+};
+
+const Particles: React.FC<{ count?: number }> = ({ count = 400 }) => {
+  const points = useRef<THREE.Points>(null!);
+  const scroll = useScroll();
+
+  // Generate random positions for the particles
+  const positions = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      // Spread particles across a volume larger than the visible view
+      pos[i * 3] = (Math.random() - 0.5) * 25;     // X
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 25; // Y
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 25; // Z
+    }
+    return pos;
+  }, [count]);
+
+  useFrame((state, delta) => {
+    if (!points.current) return;
+
+    const positionAttribute = points.current.geometry.attributes.position as THREE.BufferAttribute;
+    const array = positionAttribute.array as Float32Array;
+    
+    // Scroll delta influences vertical movement (simulating air resistance/wind from movement)
+    // When scrolling fast, particles react to the "wind"
+    const scrollVel = scroll.delta * 20;
+
+    for (let i = 0; i < count; i++) {
+      const i3 = i * 3;
+      
+      // Constant gentle fall (gravity)
+      array[i3 + 1] -= delta * 0.5;
+      
+      // Scroll influence: if scrolling down (positive delta), particles appear to push up relative to camera
+      array[i3 + 1] += scrollVel * delta * 2;
+
+      // Slight sine wave wobble on X for organic feel
+      array[i3] += Math.sin(state.clock.elapsedTime * 0.5 + array[i3 + 1]) * 0.01 * delta * 60;
+
+      // Boundary Check & Reset (Infinite loop effect)
+      if (array[i3 + 1] < -12) array[i3 + 1] = 12;
+      if (array[i3 + 1] > 12) array[i3 + 1] = -12;
+    }
+    
+    positionAttribute.needsUpdate = true;
+  });
+
+  return (
+    <points ref={points}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={positions.length / 3}
+          array={positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial 
+        size={0.12} 
+        color="#e3f4f2" 
+        transparent 
+        opacity={0.6} 
+        sizeAttenuation 
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
 };
 
 const ParallaxEnvironment = () => {
@@ -126,6 +195,9 @@ export const Experience: React.FC = () => {
         */}
         <Environment preset="apartment" background={false} blur={1} />
         <ParallaxEnvironment />
+
+        {/* Ambient floating particles */}
+        <Particles />
 
         {/* 
           IdleRotation wraps the content to add a gentle spin when the user stops scrolling.
